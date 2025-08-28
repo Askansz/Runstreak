@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b0b0f" />
+  <title>Runstreak</title>
+  <style>
+    :root {
+      --bg: #0b0b0f;
+      --fg: #e6e6ea;
+      --muted: #9aa0a6;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      display: grid;
+      grid-template-rows: 1fr auto;
+      align-items: center;
+      justify-items: center;
+      gap: 2rem;
+      padding: 2rem;
+    }
+    .count {
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      font-size: clamp(4rem, 16vw, 18rem);
+      user-select: none;
+    }
+    footer {
+      width: 100%;
+      max-width: 900px;
+      text-align: center;
+      color: var(--muted);
+      font-size: clamp(0.85rem, 1.5vw, 1rem);
+      padding-bottom: 0.5rem;
+    }
+    .hint {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <main class="count" id="count">0</main>
+
+  <footer>
+    <div class="hint" id="startText">Started 23 March 2020</div>
+  </footer>
+
+  <noscript>
+    <style>body { display:block; padding:2rem; }</style>
+    Enable JavaScript to see the live counter.
+  </noscript>
+
+  <script>
+    // --- Configure your start date here (year, monthIndex[0-11], day) ---
+    const START_DATE = new Date(2020, 2, 23); // 23 March 2020
+
+    // Compute inclusive day difference using local dates (avoids DST/timezone off-by-one).
+    function daysSinceInclusive(startDate) {
+      const now = new Date();
+      const startLocal = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+      const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const msPerDay = 24 * 60 * 60 * 1000;
+      const diff = Math.floor((todayLocal - startLocal) / msPerDay);
+      return diff + 1; // inclusive of the start day
+    }
+
+    function formatStartDate(d) {
+      // e.g., "23 March 2020"
+      return d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function render() {
+      document.getElementById('count').textContent = daysSinceInclusive(START_DATE).toString();
+      document.getElementById('startText').textContent = "Started " + formatStartDate(START_DATE);
+    }
+
+    function msUntilNextMidnight() {
+      const now = new Date();
+      const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      return next - now + 1000; // small buffer
+    }
+
+    function scheduleMidnightRefresh() {
+      setTimeout(() => {
+        render();
+        scheduleMidnightRefresh();
+      }, msUntilNextMidnight());
+    }
+
+    render();
+    scheduleMidnightRefresh();
+  </script>
+</body>
+</html>
