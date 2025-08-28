@@ -56,49 +56,54 @@
     // --- Configure your start date here (year, monthIndex[0-11], day) ---
     const START_DATE = new Date(2020, 2, 23); // 23 March 2020
 
-    // Convert to local "date-only" (midnight local time) to avoid DST/timezone issues.
+    // Convert to local date-only (midnight local time) to avoid DST/timezone issues.
     function toLocalDateOnly(d) {
       return new Date(d.getFullYear(), d.getMonth(), d.getDate());
     }
 
-    // Inclusive days: start day counts as day 1.
+    // Inclusive day count (start day = day 1). This inherently handles leap years.
     function daysSinceInclusive(startDate) {
       const start = toLocalDateOnly(startDate);
       const now = new Date();
       const today = toLocalDateOnly(now);
       const msPerDay = 24 * 60 * 60 * 1000;
       const diff = Math.floor((today - start) / msPerDay);
-      return diff + 1;
+      return Math.max(0, diff) + 1;
     }
 
     function formatStartDate(d) {
       return d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
-    // Pad with leading zeros to at least 4 digits (scales up if your streak exceeds 9999).
+    // Pad with leading zeros to at least 4 digits, grows automatically for larger streaks.
     function pad(n, min = 4) {
       const s = String(n);
       const width = Math.max(min, s.length);
       return s.padStart(width, '0');
     }
 
-    // Easing (easeOutCubic) for a nice quick start, smooth finish.
+    // Easing for animation.
     function easeOutCubic(t) {
       return 1 - Math.pow(1 - t, 3);
     }
 
-    // Animate from 0 to target over duration ms.
-    function animateCount(target, durationMs = 2000) {
+    // Animate from 0 to target over durationMs; force exact final value.
+    function animateCount(target, durationMs = 1800) {
       const el = document.getElementById('count');
       const digits = Math.max(4, String(target).length);
       const startTs = performance.now();
 
       function frame(now) {
-        const t = Math.min(1, (now - startTs) / durationMs);
-        const eased = easeOutCubic(t);
-        const val = Math.round(eased * target);
-        el.textContent = pad(val, digits);
-        if (t < 1) requestAnimationFrame(frame);
+        const rawT = (now - startTs) / durationMs;
+        const t = Math.min(1, Math.max(0, rawT));
+        if (t < 1) {
+          const eased = easeOutCubic(t);
+          const val = Math.round(eased * target);
+          el.textContent = pad(val, digits);
+          requestAnimationFrame(frame);
+        } else {
+          el.textContent = pad(target, digits); // guarantee final value
+        }
       }
       requestAnimationFrame(frame);
     }
@@ -111,23 +116,31 @@
     function msUntilNextMidnight() {
       const now = new Date();
       const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-      return next - now + 1000; // small buffer
+      return (next - now) + 1000; // small buffer
     }
 
     function scheduleMidnightRefresh() {
       setTimeout(() => {
         const target = daysSinceInclusive(START_DATE);
-        // Post-startup: set instantly (no animation).
-        renderStatic(target);
+        renderStatic(target); // no animation after midnight
         scheduleMidnightRefresh();
       }, msUntilNextMidnight());
     }
 
-    // Initial render: set the start text and run the intro animation.
     (function init() {
       document.getElementById('startText').textContent = "Started " + formatStartDate(START_DATE);
       const target = daysSinceInclusive(START_DATE);
-      animateCount(target, 2000); // ~2s intro animation
+
+      // Respect reduced motion preference.
+      const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (prefersReducedMotion) {
+        renderStatic(target);
+      } else {
+        animateCount(target, 1800);
+        // Extra safety: set exact value shortly after animation.
+        setTimeout(() => renderStatic(target), 1900);
+      }
+
       scheduleMidnightRefresh();
     })();
   </script>
