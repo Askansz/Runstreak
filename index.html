@@ -6,11 +6,7 @@
   <meta name="theme-color" content="#0b0b0f" />
   <title>Runstreak</title>
   <style>
-    :root {
-      --bg: #0b0b0f;
-      --fg: #e6e6ea;
-      --muted: #9aa0a6;
-    }
+    :root { --bg:#0b0b0f; --fg:#e6e6ea; --muted:#9aa0a6; }
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
     body {
@@ -41,13 +37,11 @@
       font-size: clamp(0.85rem, 1.5vw, 1rem);
       padding-bottom: 0.5rem;
     }
-    .hint {
-      opacity: 0.9;
-    }
+    .hint { opacity: 0.9; }
   </style>
 </head>
 <body>
-  <main class="count" id="count">0</main>
+  <main class="count" id="count">0000</main>
 
   <footer>
     <div class="hint" id="startText">Started 23 March 2020</div>
@@ -62,24 +56,56 @@
     // --- Configure your start date here (year, monthIndex[0-11], day) ---
     const START_DATE = new Date(2020, 2, 23); // 23 March 2020
 
-    // Compute inclusive day difference using local dates (avoids DST/timezone off-by-one).
+    // Convert to local "date-only" (midnight local time) to avoid DST/timezone issues.
+    function toLocalDateOnly(d) {
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    // Inclusive days: start day counts as day 1.
     function daysSinceInclusive(startDate) {
+      const start = toLocalDateOnly(startDate);
       const now = new Date();
-      const startLocal = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-      const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const today = toLocalDateOnly(now);
       const msPerDay = 24 * 60 * 60 * 1000;
-      const diff = Math.floor((todayLocal - startLocal) / msPerDay);
-      return diff + 1; // inclusive of the start day
+      const diff = Math.floor((today - start) / msPerDay);
+      return diff + 1;
     }
 
     function formatStartDate(d) {
-      // e.g., "23 March 2020"
       return d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
-    function render() {
-      document.getElementById('count').textContent = daysSinceInclusive(START_DATE).toString();
-      document.getElementById('startText').textContent = "Started " + formatStartDate(START_DATE);
+    // Pad with leading zeros to at least 4 digits (scales up if your streak exceeds 9999).
+    function pad(n, min = 4) {
+      const s = String(n);
+      const width = Math.max(min, s.length);
+      return s.padStart(width, '0');
+    }
+
+    // Easing (easeOutCubic) for a nice quick start, smooth finish.
+    function easeOutCubic(t) {
+      return 1 - Math.pow(1 - t, 3);
+    }
+
+    // Animate from 0 to target over duration ms.
+    function animateCount(target, durationMs = 2000) {
+      const el = document.getElementById('count');
+      const digits = Math.max(4, String(target).length);
+      const startTs = performance.now();
+
+      function frame(now) {
+        const t = Math.min(1, (now - startTs) / durationMs);
+        const eased = easeOutCubic(t);
+        const val = Math.round(eased * target);
+        el.textContent = pad(val, digits);
+        if (t < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function renderStatic(target) {
+      const el = document.getElementById('count');
+      el.textContent = pad(target, Math.max(4, String(target).length));
     }
 
     function msUntilNextMidnight() {
@@ -90,13 +116,20 @@
 
     function scheduleMidnightRefresh() {
       setTimeout(() => {
-        render();
+        const target = daysSinceInclusive(START_DATE);
+        // Post-startup: set instantly (no animation).
+        renderStatic(target);
         scheduleMidnightRefresh();
       }, msUntilNextMidnight());
     }
 
-    render();
-    scheduleMidnightRefresh();
+    // Initial render: set the start text and run the intro animation.
+    (function init() {
+      document.getElementById('startText').textContent = "Started " + formatStartDate(START_DATE);
+      const target = daysSinceInclusive(START_DATE);
+      animateCount(target, 2000); // ~2s intro animation
+      scheduleMidnightRefresh();
+    })();
   </script>
 </body>
 </html>
